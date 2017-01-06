@@ -1,0 +1,97 @@
+p = c(0.9,0.1)
+q = c(0.8,0.2)
+0.5 * (p+q)
+m = 0.5 * (p+q)
+p/m
+sum(p/m)
+folders = c('~/Desktop/experiment_xiii/')#
+# replace this with the location of the actual folder#
+for (folder in folders) {#
+	directories = list.files(folder)#
+	eng.sits = c(88,140,273,244,40,201,121,296,168,33,163,310,79,63,133,116,203,130,49,2,27,117,45)#
+	rus.sits = c(43,311,287,38,95,25,33,282,295,206,260,45)#
+	eng.legend = c('black', 'brown', 'blue', 'green', 'grey', 'orange', 'pink', 'purple', 'red', 'white', 'yellow')#
+	rus.legend = c('white', 'black', 'purple', 'lightblue', 'brown', 'red', 'orange', 'pink', 'grey', 'blue', 'green', 'yellow')#
+	for (subdir in directories) {#
+		if (length(grep('rus', subdir)) == 1) { #
+			sits = rus.sits#
+			legend = rus.legend#
+			lg = 1#
+		} else {#
+			sits = eng.sits#
+			legend = eng.legend#
+			lg = 0#
+		}#
+		development = read.csv(sprintf('%s%s/development.csv', folder, subdir), header =TRUE)#
+		dev.sub = droplevels(development[development$situation %in% sits,])#
+		dev.long = reshape(dev.sub, varying = colnames(dev.sub)[4:(14+lg)], v.names = 'p', timevar = 'term', times =  colnames(dev.sub)[4:(14+lg)], direction = 'long')#
+		for (sit in unique(dev.long$situation)) {#
+			q = ggplot(dev.long[dev.long$situation == sit,], aes(x = time, y = p, color = term)) + geom_smooth() #
+			q = q + scale_color_manual(values = legend)#
+			ggsave(sprintf('dev_sit_%d_%s.pdf', sit, subdir), q)#
+		}#
+	}#
+}
+library(ggplot2)
+folders = c('~/Desktop/experiment_xiii/')#
+# replace this with the location of the actual folder#
+for (folder in folders) {#
+	directories = list.files(folder)#
+	eng.sits = c(88,140,273,244,40,201,121,296,168,33,163,310,79,63,133,116,203,130,49,2,27,117,45)#
+	rus.sits = c(43,311,287,38,95,25,33,282,295,206,260,45)#
+	eng.legend = c('black', 'brown', 'blue', 'green', 'grey', 'orange', 'pink', 'purple', 'red', 'white', 'yellow')#
+	rus.legend = c('white', 'black', 'purple', 'lightblue', 'brown', 'red', 'orange', 'pink', 'grey', 'blue', 'green', 'yellow')#
+	for (subdir in directories) {#
+		if (length(grep('rus', subdir)) == 1) { #
+			sits = rus.sits#
+			legend = rus.legend#
+			lg = 1#
+		} else {#
+			sits = eng.sits#
+			legend = eng.legend#
+			lg = 0#
+		}#
+		development = read.csv(sprintf('%s%s/development.csv', folder, subdir), header =TRUE)#
+		dev.sub = droplevels(development[development$situation %in% sits,])#
+		dev.long = reshape(dev.sub, varying = colnames(dev.sub)[4:(14+lg)], v.names = 'p', timevar = 'term', times =  colnames(dev.sub)[4:(14+lg)], direction = 'long')#
+		for (sit in unique(dev.long$situation)) {#
+			q = ggplot(dev.long[dev.long$situation == sit,], aes(x = time, y = p, color = term)) + geom_smooth() #
+			q = q + scale_color_manual(values = legend)#
+			ggsave(sprintf('dev_sit_%d_%s.pdf', sit, subdir), q)#
+		}#
+	}#
+}
+library(oc)
+install.packages('oc')
+library(oc)
+oc?
+0
+)
+?oc
+sen90
+sen90 <- readKH("ftp://voteview.com/sen90kh.ord")
+q()
+setwd('Dropbox/rsc/pst/categorization/data/color_new/')
+data = read.table('elicited_features.csv')
+head(data)
+data = read.table('elicited_features.csv', sep = ',')
+data[data$V1 == 112,]
+data[data$V1 == 112,]$V3
+xtabs(~data[data$V1 == 112,]$V3_
+)
+xtabs(~data[data$V1 == 112,]$V3)
+unname(xtabs(~data[data$V1 == 112,]$V3))
+sort(unname(xtabs(~data[data$V1 == 112,]$V3)))
+xtabs(~data[data$V1 == 112,]$V3)
+xtabs(~data[data$V3==38,]$V4)
+xtabs(~data[data$V1 == 112 & data$V3==38,]$V4)
+xtabs(~data[data$V1 == 112 & data$V3==38,]$V4, drop.unused.levels=TRUE)
+xtabs(~data[data$V1 == 112 & data$V3==120,]$V4, drop.unused.levels=TRUE)
+xtabs(~data[data$V1 == 112 & data$V3==282,]$V4, drop.unused.levels=TRUE)
+xtabs(~data[data$V1 == 112 & data$V3==311,]$V4, drop.unused.levels=TRUE)
+5200/60
+5200/60*24
+5200/(60*24)
+540/8
+68/24
+q()

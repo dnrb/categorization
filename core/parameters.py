@@ -1,10 +1,12 @@
 import numpy as np
 
 parameters = {
-    'data' : 'color',
+    'data' : 'biling',
     'folder name' : None,
     'subfolder name' : None,
-    'target language' : '111', # '111' for color, should correspond to TXT and TXT if 'input sampling responses' == 'corpus'
+    'target language' : ['italian','english'], # '111' for color, should correspond to TXT and TXT if 'input sampling
+    # responses' ==
+    # 'corpus'
     #
     'fold' : None,
     'test interval' : 100,

@@ -34,9 +34,12 @@ class data:
         #
         self.initialize_data(elicited_features)
         self.dim_weights, self.situations = self.initialize_features()
+        self.filter_situations()
         # initializes several variables; reads features from file.
         # set initial dimension weights (for ALCOVE)
-        self.nF = self.situations.shape[1]
+        #self.nF = self.situations.shape[1]
+        self.nF = len(next(iter(self.situations.values())))
+        # YM: self.situation is a dictionary
         # set number of features
         self.P_t = self.initialize_P_t()
         # set corpus probabilities of terms
@@ -69,6 +72,8 @@ class data:
         #with open(fn, 'r') as fh:
         #    self.elicited_features = list(csv.reader(fh))
         self.elicited_features = elicited_features
+        #self.filter_data()
+        #YM: Filters the data to eliminate any situations occurring only in one of the target languages.
         self.term_indices = dd(lambda : {})
         self.languages = set()
         self.nS = 0
@@ -90,6 +95,28 @@ class data:
             for situation, v2 in v1.items():
                 for term, count in v2.items():
                     self.CMs[language][situation,term] = count
+        return
+
+    # YM: Filters the data to eliminate any situations occurring only in one of the target languages.
+    def filter_data(self):
+        situations = list()
+        for l in self.target_language:
+            situations.append(set([f[2] for f in self.elicited_features if f[0]==l]))
+        situations_shared = set(situations[0])
+        for s in situations[1:]:
+            situations_shared.intersection_update(s)
+        self.elicited_features = [f for f in self.elicited_features if f[2] in situations_shared and f[0] in self.target_language]
+        return
+
+    def filter_situations(self):
+        situation_idxx = list()
+        for l in self.target_language:
+            situation_idxx.append(set([f[2] for f in self.elicited_features if f[0]==l]))
+        shared_situation_idxx = set(situation_idxx[0])
+        for s in situation_idxx[1:]:
+            shared_situation_idxx.intersection_update(s)
+        situations = dict([(int(idx), self.situations[int(idx)]) for idx in shared_situation_idxx])
+        self.situations = situations
         return
 
     def initialize_features(self):

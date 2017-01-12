@@ -4,7 +4,7 @@ parameters = {
     'data' : 'biling',
     'folder name' : None,
     'subfolder name' : None,
-    'target language' : ['italian','english'], # '111' for color, should correspond to TXT and TXT if 'input sampling
+    'target language' : ['113','111'], # '111' for color, should correspond to TXT and TXT if 'input sampling
     # responses' ==
     # 'corpus'
     #

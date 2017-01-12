@@ -15,19 +15,25 @@ def experiment(params, folder_name, pool_size = 1):
     params['folder name'] = folder_name
     # YM: changed TARGET class, added onset and share
     param_combos = [[sam, target, cd, size, a, alpha, onset, share]
-                    for cd in ['dm_biling_test']
-                    for target in [['italian', 'english']]
-                    for sam in ['corpus','uniform']
-                    for size in [7,10,12]
-                    for a in [0.1,0.3,0.5]
-                    for alpha in [0.1,0.3,0.5]
-                    for onset in [[0, 0], [0, 0.5], [0, 1]]
-                    for share in [[1, 0], [0.75, 0.25], [0.5, 0.5], [0, 1]]
+                    for cd in ['dm_concprop','dm_perc']
+                    for target in [['113', '111']]
+                    #for sam in ['corpus','uniform']
+                    for sam in ['corpus']
+                    #for size in [7,10,12]
+                    for size in [5,7]
+                    #for a in [0.1,0.3,0.5]
+                    for a in [0.1]
+                    #for alpha in [0.1,0.3,0.5]
+                    for alpha in [0.1, 0.02]
+                    for onset in [[0, 1], [0, 0], [0, 0.25], [0, 0.5]]
+                    #for onset in [[0, 1], [1, 0]]
+                    for share in [[0.5, 0.5]]
+                    #for share in [[0.75, 0.25], [0.5, 0.5]]
                     ]
     print('n parameter combos: %d' % len(param_combos))
     features = ['input sampling responses', 'target language', 'conceptual data', 'som size',
                 'som a', 'som alpha', 'moment of onset', 'language share']
-    shorthands = ['sam', 'target', 'language', 'cd', 'size', 'a', 'alpha', 'onset', 'share']
+    shorthands = ['sam', 'target', 'cd', 'size', 'a', 'alpha', 'onset', 'share']
     #
     arguments = [(param_combo,params,features,shorthands,ix)
                  for ix,param_combo in enumerate(param_combos)]

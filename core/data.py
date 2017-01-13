@@ -29,7 +29,7 @@ class data:
         self.onset = parameters['moment of onset']
         self.share = parameters['language share']
         #      
-        fn = 'data/%s/elicited_features.csv' % parameters['data']
+        fn = '../data/%s/elicited_features.csv' % parameters['data']
         with open(fn, 'r') as fh: elicited_features = list(csv.reader(fh))
         #
         self.initialize_data(elicited_features)
@@ -120,7 +120,7 @@ class data:
         return
 
     def initialize_features(self):
-        fn = ('data/%s/feature_spaces/%s.csv' % 
+        fn = ('../data/%s/feature_spaces/%s.csv' % 
               (self.data_folder, self.conceptual_data))
         with open(fn, 'r') as fh:
             features = A([A([float(c) for c in row]) for row in csv.reader(fh)])
@@ -143,6 +143,7 @@ class data:
             count = np.ones(len(self.term_indices[target_language]))
             if self.input_sampling_responses == 'corpus':
                 fn = ('data/%s/frequencies/%s.csv' %
+                fn = ('../data/%s/frequencies/%s.csv' %
                         (self.data_folder, self.frequency_data))
                 with open(fn,'r') as fh:
                     freqs = [f for f in csv.reader(fh)

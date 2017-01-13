@@ -221,8 +221,32 @@ class classifier:
             self.development_fh.write('\n')
         self.development_fh.close()
         self.convergence_fh.close()
+        self.calculate_centroids()
         return
         #
+
+    def calculate_centroids(self):
+        # BB added 170113 for bilingualism experiment
+        # pickles a dictionary of (language,term) pairs to arrays of average feature values for that term
+        # (as given by a weighted mean over the map)
+        start_features = np.sum([self.data.nT[l] for l in self.data.target_language])
+        global_t_ix = 0
+        
+        centroids = {}
+        for l in self.data.target_language:
+            p_t_given_c = self.map[:,:,global_t_ix : global_t_ix+self.data.nT[l]].copy()
+            for i in range(self.parameters['som size']):
+                for j in range(self.parameters['som size']):
+                    p_t_given_c[i,j] /= self.map[i,j,global_t_ix : global_t_ix+self.data.nT[l]].sum()
+            for t_ix, t in enumerate(self.data.terms[l]):
+                weighted_features = []
+                for f in range(start_features,self.map.shape[2]):
+                    weighted_features.append((p_t_given_c[:,:,t_ix] * self.map[:,:,f]).sum()/p_t_given_c[:,:,t_ix].sum())
+                print(l,t,' '.join(['%.2f' % v for v in weighted_features[:10]]))
+                centroids[(l,t)] = np.array(weighted_features)
+                
+            global_t_ix += self.data.nT[l]
+        pickle.dump(centroids, open('%s/centroids_%d_%d.p' % (self.data.dirname, self.simulation, self.time),'wb'))
 
 class gnb(classifier):
     # Gaussian Naive Bayes
@@ -688,7 +712,7 @@ class som(classifier):
             term_distributions[l] = dict()
             for idx, (i,j) in bmu_ixx.items():
                 term_distributions[l][idx] = A(self.map[i,j,x:x+self.data.nT[l]])
-                term_distributions[l][idx] = normalize(term_distributions[l][idx], norm = 'l1', axis = 1)
+                term_distributions[l][idx] = normalize(A([term_distributions[l][idx]]), norm = 'l1', axis = 1)
             x += self.data.nT[l]
         return term_distributions
 

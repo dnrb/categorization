@@ -5,6 +5,8 @@ parameters = {
     'folder name' : None,
     'subfolder name' : None,
     'target language' : ['113','111'], # '111' for color, should correspond to TXT and TXT if 'input sampling
+    'moment of onset' : [0,0],
+    'language share' : [.5,.5],
     # responses' ==
     # 'corpus'
     #
@@ -13,7 +15,7 @@ parameters = {
     'n simulations' : 5,
     'length simulation' : 30000,
     #
-    'conceptual data' : 'nodr_subject',
+    'conceptual data' : 'dm_perc',
     'input sampling responses' : 'corpus', # uniform, corpus, siutation
     'frequency data' : 'frequencies',
     #

@@ -204,11 +204,6 @@ class classifier:
                     # predictions[l] = dd([(situation, mpt[situation]==predicted_best_term[situation])
                     #                       for situation in self.data.situations.keys()])
                     for situation in self.data.situations.keys():
-                        if l == '113':
-                            print(mpt[situation], predicted_best_term[situation], '%.2f' % self.data.CMs[l][situation][predicted_best_term[situation]],'\t',
-                                  ', '.join(str(ss) for ss in self.data.CMs[l][situation]), '\t',
-                                  ', '.join('%.2f' % ss for ss in posterior[l][situation][0]), '\t',
-                                  ', '.join('%.2f' % p for p in self.data.P_t[l]))
                         predictions[l][situation] = (mpt[situation] == predicted_best_term[situation])
             # else:
             #     predictions.append((A(predicted_best_term) == A(mpt))[self.test_set])

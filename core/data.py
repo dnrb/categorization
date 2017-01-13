@@ -142,6 +142,7 @@ class data:
         for target_language in self.target_language:
             count = np.ones(len(self.term_indices[target_language]))
             if self.input_sampling_responses == 'corpus':
+                fn = ('data/%s/frequencies/%s.csv' %
                 fn = ('../data/%s/frequencies/%s.csv' %
                         (self.data_folder, self.frequency_data))
                 with open(fn,'r') as fh:

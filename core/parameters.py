@@ -1,17 +1,21 @@
 import numpy as np
 
 parameters = {
-    'data' : 'color',
+    'data' : 'biling',
     'folder name' : None,
     'subfolder name' : None,
-    'target language' : '111', # '111' for color, should correspond to TXT and TXT if 'input sampling responses' == 'corpus'
+    'target language' : ['113','111'], # '111' for color, should correspond to TXT and TXT if 'input sampling
+    'moment of onset' : [0,0],
+    'language share' : [.5,.5],
+    # responses' ==
+    # 'corpus'
     #
     'fold' : None,
     'test interval' : 100,
     'n simulations' : 5,
     'length simulation' : 30000,
     #
-    'conceptual data' : 'nodr_subject',
+    'conceptual data' : 'dm_perc',
     'input sampling responses' : 'corpus', # uniform, corpus, siutation
     'frequency data' : 'frequencies',
     #

@@ -16,9 +16,9 @@ class data:
         self.dirname = '%s/%s' % (parameters['folder name'], 
                                   parameters['subfolder name'])
         self.target_language = parameters['target language']
-        self.leave_out_language = (None if 
-                                   parameters['leave target language out'] 
-                                   else self.target_language)
+        self.leave_out_language = (None if
+                                    parameters['leave target language out']
+                                    else self.target_language)
         self.distance_metric = parameters['distance metric']
         self.pca_threshold = parameters['pca threshold']
         self.data_folder = parameters['data']
@@ -26,31 +26,41 @@ class data:
         self.frequency_data = (parameters['frequency data'] if 'frequency data'
                                in parameters else 'frequencies')
         self.conceptual_data = parameters['conceptual data']
+        self.onset = parameters['moment of onset']
+        self.share = parameters['language share']
         #      
-        fn = 'data/%s/elicited_features.csv' % parameters['data']
+        fn = '../data/%s/elicited_features.csv' % parameters['data']
         with open(fn, 'r') as fh: elicited_features = list(csv.reader(fh))
         #
         self.initialize_data(elicited_features)
         self.dim_weights, self.situations = self.initialize_features()
+        self.filter_situations()
         # initializes several variables; reads features from file.
         # set initial dimension weights (for ALCOVE)
-        self.nF = self.situations.shape[1]
+        #self.nF = self.situations.shape[1]
+        self.nF = len(next(iter(self.situations.values())))
+        # YM: self.situation is a dictionary
         # set number of features
         self.P_t = self.initialize_P_t()
         # set corpus probabilities of terms
-        self.nT = self.P_t.shape[0]
+        self.nT = dict([(k,v.shape[0]) for k,v in self.P_t.items()])
         # set number of terms for target language
-        self.P_s_given_t = normalize(self.CMs[self.target_language].T, 
-                                     norm = 'l1', axis = 1)
+        # YM: the number of terms is also a dictionary now.
+        self.P_s_given_t = dict([(l,normalize(self.CMs[l].T,
+                                     norm = 'l1', axis = 1))
+                                 for l in self.target_language])
         # set conditional probabilities of situations given terms for target 
         # language
-        self.max_P_t_given_s = self.CMs[self.target_language].argmax(1)
-        self.max_P_t_given_s[self.CMs[self.target_language].sum(1) == 0] = -1
+        # YM: conditional probabilities is also a dictionary now.
+        self.max_P_t_given_s = dict([(l,self.CMs[l].argmax(1)) for l in self.target_language])
+        for l in self.target_language:
+            self.max_P_t_given_s[l][self.CMs[l].sum(1) == 0] = -1
         # set the most likely term given every situation; for unseen 
         # situations set to -1
-        self.terms = A(sorted(self.term_indices[self.target_language].keys(),
-                       key = lambda k : 
-                                self.term_indices[self.target_language][k]))
+        # YM: another dictionary for max(P(t|s))
+        self.terms = dict( [(l, A(sorted(self.term_indices[l].keys(),
+                       key = lambda k : self.term_indices[l][k])))
+                       for l in self.target_language] )
         # creates list of terms for target language for quick access.
         # creates a csv file with the representations used by the model in it
 
@@ -62,6 +72,8 @@ class data:
         #with open(fn, 'r') as fh:
         #    self.elicited_features = list(csv.reader(fh))
         self.elicited_features = elicited_features
+        #self.filter_data()
+        #YM: Filters the data to eliminate any situations occurring only in one of the target languages.
         self.term_indices = dd(lambda : {})
         self.languages = set()
         self.nS = 0
@@ -76,7 +88,7 @@ class data:
                 lt = len(self.term_indices[language])
                 word_ix = self.term_indices[language][word] = lt
             CM_constructor[language][int(situation)][word_ix] += 1.0
-        self.CMs = { language : 
+        self.CMs = {language :
                         np.zeros((self.nS, len(self.term_indices[language]))) 
                      for language in self.languages}
         for language, v1 in CM_constructor.items():
@@ -85,14 +97,36 @@ class data:
                     self.CMs[language][situation,term] = count
         return
 
+    # YM: Filters the data to eliminate any situations occurring only in one of the target languages.
+    def filter_data(self):
+        situations = list()
+        for l in self.target_language:
+            situations.append(set([f[2] for f in self.elicited_features if f[0]==l]))
+        situations_shared = set(situations[0])
+        for s in situations[1:]:
+            situations_shared.intersection_update(s)
+        self.elicited_features = [f for f in self.elicited_features if f[2] in situations_shared and f[0] in self.target_language]
+        return
+
+    def filter_situations(self):
+        situation_idxx = list()
+        for l in self.target_language:
+            situation_idxx.append(set([f[2] for f in self.elicited_features if f[0]==l]))
+        shared_situation_idxx = set(situation_idxx[0])
+        for s in situation_idxx[1:]:
+            shared_situation_idxx.intersection_update(s)
+        situations = dict([(int(idx), self.situations[int(idx)]) for idx in shared_situation_idxx])
+        self.situations = situations
+        return
+
     def initialize_features(self):
-        fn = ('data/%s/feature_spaces/%s.csv' % 
+        fn = ('../data/%s/feature_spaces/%s.csv' % 
               (self.data_folder, self.conceptual_data))
         with open(fn, 'r') as fh:
-            features =A([A([float(c) for c in row]) for row in csv.reader(fh)])
+            features = A([A([float(c) for c in row]) for row in csv.reader(fh)])
             range_ = features.max(0) - features.min(0)
             dim_weights = range_ / range_.max()
-            features_centered=(features-features.mean(0))/range_.max()+0.5
+            features_centered = (features-features.mean(0))/range_.max()+0.5
             # centers the values s.t. the mean per feature is 0.5, the 
             # feature with the highest original range now has a range of 1, and
             # the other features have proportional ranges according to their 
@@ -100,34 +134,40 @@ class data:
         print('situation shape', features_centered.shape, self.conceptual_data)
         return dim_weights, features_centered
 
+    #YM: this function returns a dictionary now.
     def initialize_P_t(self):
         # returns the probabilities of the terms as read off from a frequencies
         # .csv file
-        count = np.ones(len(self.term_indices[self.target_language]))
-        if self.input_sampling_responses == 'corpus':
-            fn = ('data/%s/frequencies/%s.csv' % 
-                    (self.data_folder, self.frequency_data))
-            with open(fn,'r') as fh:
-                freqs = [f for f in csv.reader(fh) 
-                         if f[0] == self.target_language]
-            for language, word, freq in freqs:
-                try:
-                    word_ix = self.term_indices[language][word]
-                    count[word_ix] = float(freq)+1
-                    # added smoothing here to deal with low counts (e.g. for 
-                    # Russian color)
-                except KeyError: pass
-        return normalize([count], norm = 'l1')[0]
+        P_ts = dict()
+        for target_language in self.target_language:
+            count = np.ones(len(self.term_indices[target_language]))
+            if self.input_sampling_responses == 'corpus':
+                fn = ('../data/%s/frequencies/%s.csv' %
+                        (self.data_folder, self.frequency_data))
+                with open(fn,'r') as fh:
+                    freqs = [f for f in csv.reader(fh)
+                             if f[0] == target_language]
+                for language, word, freq in freqs:
+                    try:
+                        word_ix = self.term_indices[language][word]
+                        count[word_ix] = float(freq)+1
+                        # added smoothing here to deal with low counts (e.g. for
+                        # Russian color)
+                    except KeyError: pass
+            P_ts[target_language] = normalize([count], norm='l1')[0]
+        return P_ts
 
-    def read_discrimination_data(self, parameters):
-        # creates an array of 20 stimuli for discrimination experiments.
-        self.discrimination_data = parameters['discrimination data']
-        if self.discrimination_data == 'winawer':
-            start, end = 278, 187
-            # takes situations whose Lab values are closest to 20 Winawer 
-            # stimuli and that have require maxPt|s to be sin/gol; end = 195 
-            # if this last constraint is not in place
-        start_v, end_v = self.situations[start], self.situations[end]
-        self.discrimination_stimuli = A([start_v - i*(start_v-end_v)/19 
-                                         for i in range(20)])
-        return
+
+    ## YM: not needed for the bilingual experiment.
+    # def read_discrimination_data(self, parameters):
+    #     # creates an array of 20 stimuli for discrimination experiments.
+    #     self.discrimination_data = parameters['discrimination data']
+    #     if self.discrimination_data == 'winawer':
+    #         start, end = 278, 187
+    #         # takes situations whose Lab values are closest to 20 Winawer
+    #         # stimuli and that have require maxPt|s to be sin/gol; end = 195
+    #         # if this last constraint is not in place
+    #     start_v, end_v = self.situations[start], self.situations[end]
+    #     self.discrimination_stimuli = A([start_v - i*(start_v-end_v)/19
+    #                                      for i in range(20)])
+    #     return

@@ -3,6 +3,7 @@ from sklearn.naive_bayes import GaussianNB
 # DELEER from scipy.stats import pearsonr
 import numpy as np
 from collections import Counter
+from collections import defaultdict as dd
 # DELEER import math
 # MIGRATE from sklearn.metrics import confusion_matrix as cm
 # DELEER import csv
@@ -79,6 +80,31 @@ class classifier:
         coordinates = self.data.situations[situation]
         return coordinates, term
 
+    def sample_input_itemM(self):
+        # returns a sampled vector of feature-values (reals) for a situation
+        # and a term (integer)
+        situation = None
+        if (self.input_sampling_responses == 'corpus' or
+            self.input_sampling_responses == 'uniform'):
+            # sampling on the basis of corpus/uniform term frequencies and
+            # P(s|t)
+            while (situation == None or situation in self.test_set or situation not in self.data.situations):
+                term = np.random.choice(self.data.nT[self.lang], 1, p = self.data.P_t[self.lang])[0]
+                p_s_given_t = self.data.P_s_given_t[self.lang][term]
+                #situation = np.random.choice(self.data.nS, 1, p=p_s_given_t)[0]
+                situation = np.random.choice(self.data.nS, 1, p=p_s_given_t)[0]
+        elif self.input_sampling_responses == 'situation':
+            # sampling on the basis of a uniform distribution over situations
+            # and P(t|s)
+            while (situation == None or
+                   self.data.max_P_t_given_s[situation] == -1):
+                situation = np.random.choice(self.data.nS)[0]
+            p_t_given_s = self.data.P_t_given_s[situation]
+            term = np.random.choice(self.data.nT[self.lang], 1, p = p_t_given_s)[0]
+        #
+        coordinates = self.data.situations[situation]
+        return coordinates, term
+
     def train(self, test = False, dump = False):
         # training the model for n_iterations iterations, writing away the 
         # state of the model
@@ -93,7 +119,57 @@ class classifier:
             if test: self.test()
         return
 
+    def trainM(self, test = False, dump = False):
+        # training the model for n_iterations iterations, writing away the
+        # state of the model
+        # every len_interval iterations if dump == True. Runs test() if test
+        # == true.
+        d = self.data
+        while self.time < self.n_iterations:
+            #print(self.time)
+            self.time += self.len_interval
+            self.fitM()
+            print(self.get_term_mapM())
+            if dump and self.time > 29950: self.dump()
+
+            if test: self.testM()
+        return
+
     def test(self):
+        # tests the whole set of situations and writes both convergence with
+        # adult modal naming behavior as well as the distributions over terms
+        # per situation to output files.
+        development_fn = '%s/development.csv' % self.data.dirname
+        convergence_fn = '%s/convergence.csv' % self.data.dirname
+        self.development_fh = open(development_fn, 'a')
+        self.convergence_fh = open(convergence_fn, 'a')
+        if os.path.getsize(development_fn) == 0:
+            self.development_fh.write('simulation,time,situation,%s\n' %
+                                        ','.join(self.data.terms))
+        if os.path.getsize(convergence_fn) == 0:
+            self.convergence_fh.write('simulation,time,score\n')
+        #
+        posterior = self.predict_termsM(self.data.situations)
+        predicted_best_term = posterior.argmax(1)
+        mpt = self.data.max_P_t_given_s
+        if self.test_set == []:
+            predictions = (predicted_best_term == mpt)[mpt != -1]
+        else:
+            predictions = (predicted_best_term == mpt)[self.test_set]
+        self.convergence_fh.write('%d,%d,%.3f\n' %
+                                  (self.simulation, self.time,
+                                   np.mean(predictions)))
+        for i in range(self.data.nS):
+            if i not in self.test_set and len(self.test_set) > 0: continue
+            self.development_fh.write('%d,%d,%d,%s\n' %
+                                      (self.simulation, self.time, i,
+                                        ','.join(['%.3f' % p
+                                                  for p in posterior[i]])))
+        self.development_fh.close()
+        self.convergence_fh.close()
+        return
+
+    def testM(self):
         # tests the whole set of situations and writes both convergence with 
         # adult modal naming behavior as well as the distributions over terms 
         # per situation to output files.
@@ -103,31 +179,80 @@ class classifier:
         self.convergence_fh = open(convergence_fn, 'a')
         if os.path.getsize(development_fn) == 0: 
             self.development_fh.write('simulation,time,situation,%s\n' % 
-                                        ','.join(self.data.terms))
+                                        ','.join(t for terms in self.data.terms.values() for t in terms))
         if os.path.getsize(convergence_fn) == 0: 
-            self.convergence_fh.write('simulation,time,score\n')
+            self.convergence_fh.write('simulation,time,%s\n' % ','.join(['score-'+l for l in self.target_language]))
         #
-        posterior = self.predict_terms(self.data.situations)
-        predicted_best_term = posterior.argmax(1)
-        mpt = self.data.max_P_t_given_s
-        if self.test_set == []: 
-            predictions = (predicted_best_term == mpt)[mpt != -1]
-        else: 
-            predictions = (predicted_best_term == mpt)[self.test_set]
-        self.convergence_fh.write('%d,%d,%.3f\n' % 
-                                  (self.simulation, self.time, 
-                                   np.mean(predictions)))
-        for i in range(self.data.nS):
+        posterior = self.predict_termsM(self.data.situations)
+        predictions = dd(lambda: dd(int))
+        for i in range(len(self.target_language)):
+            l = self.target_language[i]
+            predictions[l]
+            for situation in self.data.situations.keys():
+                predictions[l][situation]
+            if self.current_exposure[i]:
+                predicted_best_term = dd()
+                for situation in sorted(posterior[l].keys()):
+                    predicted_best_term[situation] = posterior[l][situation].argmax(1)[0]
+                mpt_full = self.data.max_P_t_given_s[l]
+                mpt = dict([(i,mpt_full[i]) for i in sorted(self.data.situations.keys())])
+                if self.test_set == []:
+                    # a1 = A(predicted_best_term)
+                    # a2 = A(mpt)
+                    # x = list((a1 == a2)[a2 != -1])
+                    # predictions[l] = x
+                    # predictions[l] = dd([(situation, mpt[situation]==predicted_best_term[situation])
+                    #                       for situation in self.data.situations.keys()])
+                    for situation in self.data.situations.keys():
+                        if l == '113':
+                            print(mpt[situation], predicted_best_term[situation], '%.2f' % self.data.CMs[l][situation][predicted_best_term[situation]],'\t',
+                                  ', '.join(str(ss) for ss in self.data.CMs[l][situation]), '\t',
+                                  ', '.join('%.2f' % ss for ss in posterior[l][situation][0]), '\t',
+                                  ', '.join('%.2f' % p for p in self.data.P_t[l]))
+                        predictions[l][situation] = (mpt[situation] == predicted_best_term[situation])
+            # else:
+            #     predictions.append((A(predicted_best_term) == A(mpt))[self.test_set])
+        self.convergence_fh.write('%d,%d,' % (self.simulation, self.time))
+        for l in self.target_language:
+            self.convergence_fh.write('%.3f,' % (np.mean(list(predictions[l].values()))))
+        self.convergence_fh.write('\n')
+        #for i in range(self.data.nS):
+        for i in self.data.situations.keys():
             if i not in self.test_set and len(self.test_set) > 0: continue
-            self.development_fh.write('%d,%d,%d,%s\n' % 
-                                      (self.simulation, self.time, i,
-                                        ','.join(['%.3f' % p 
-                                                  for p in posterior[i]])))
+            self.development_fh.write('%d,%d,%d,' % (self.simulation, self.time, i))
+            for l in self.target_language:
+                self.development_fh.write('%s,' % ','.join(['%.3f' % p
+                                                    for p in posterior[l][i][0]]))
+            self.development_fh.write('\n')
         self.development_fh.close()
         self.convergence_fh.close()
+        self.calculate_centroids()
         return
         #
-                                   
+
+    def calculate_centroids(self):
+        # BB added 170113 for bilingualism experiment
+        # pickles a dictionary of (language,term) pairs to arrays of average feature values for that term
+        # (as given by a weighted mean over the map)
+        start_features = np.sum([self.data.nT[l] for l in self.data.target_language])
+        global_t_ix = 0
+        
+        centroids = {}
+        for l in self.data.target_language:
+            p_t_given_c = self.map[:,:,global_t_ix : global_t_ix+self.data.nT[l]].copy()
+            for i in range(self.parameters['som size']):
+                for j in range(self.parameters['som size']):
+                    p_t_given_c[i,j] /= self.map[i,j,global_t_ix : global_t_ix+self.data.nT[l]].sum()
+            for t_ix, t in enumerate(self.data.terms[l]):
+                weighted_features = []
+                for f in range(start_features,self.map.shape[2]):
+                    weighted_features.append((p_t_given_c[:,:,t_ix] * self.map[:,:,f]).sum()/p_t_given_c[:,:,t_ix].sum())
+                print(l,t,' '.join(['%.2f' % v for v in weighted_features[:10]]))
+                centroids[(l,t)] = np.array(weighted_features)
+                
+            global_t_ix += self.data.nT[l]
+        pickle.dump(centroids, open('%s/centroids_%d_%d.p' % (self.data.dirname, self.simulation, self.time),'wb'))
+
 class gnb(classifier):
     # Gaussian Naive Bayes
     def initialize_model(self, parameters): 
@@ -401,10 +526,14 @@ class som(classifier):
         self.n_pretrain = parameters['som n pretrain']
         self.neighborhood = parameters['som neighborhood']
         self.delta_sigma = parameters['som delta sigma']
+        # YM: added parameters
+        if parameters['moment of onset']:
+            self.onset = [x*self.n_iterations for x in parameters['moment of onset']]
+            self.share = parameters['language share']
         #
         # initialize MAP
         self.size_y = self.size_x = self.size
-        term_map = np.zeros((self.size_x, self.size_y, self.data.nT))#[:,:,:]
+        term_map = np.zeros((self.size_x, self.size_y, sum(self.data.nT.values())))#[:,:,:]
         property_map = (((np.random.rand(self.size_x, self.size_y, 
                                          self.data.nF) - 0.5 ) *
                          self.init_bandwidth) + 0.5) #[:,:,:]
@@ -448,6 +577,33 @@ class som(classifier):
             self.quantization_errors.append(self.current_quantization_error)
             self.current_quantization_error = 0
 
+    def fitM(self):
+        # train the SOM on input items
+        for i in range(self.len_interval):
+            self.current_exposure = [self.time > self.onset[i]
+                               for i in range(len(self.target_language))]
+            # YM: the languages available at this moment.
+            if sum(self.current_exposure) == 1:
+                self.lang = self.target_language[self.current_exposure.index(1)]
+            elif sum(self.current_exposure) > 1:
+                ps = A([float(x) for x in A(self.current_exposure) * A(self.share)])
+                ps /= sum(ps)
+                self.lang = np.random.choice(self.target_language, 1, p=ps)[0]
+            # YM: choosing a language from the distribution given by 'share'.
+            x, y = self.sample_input_itemM()
+            input_item = self.get_input_itemM(features = x, term = y)
+            self.update_mapM(input_item, (self.n_pretrain + self.time -
+                                         self.len_interval + i ))
+        f = 1
+        if self.time % 500 == 0:
+            if (self.quantization_errors != [] and
+                self.current_quantization_error <
+                  (np.mean(self.quantization_errors[-10:]) * f)):
+                self.sigma_0 = np.max([self.sigma_0 - self.delta_sigma, 0.001])
+
+            self.quantization_errors.append(self.current_quantization_error)
+            self.current_quantization_error = 0
+
     def dump(self):
         # pickles the SOM
         fn = '%s/model_%d_%d.p' % (self.data.dirname,self.simulation,self.time)
@@ -463,11 +619,19 @@ class som(classifier):
             self.map = pickle.load(fh,encoding='latin1') 
 
     def get_input_item(self, features, term = None):
-        # on the basis of a string of features and a term, returns one vector, 
+        # on the basis of a string of features and a term, returns one vector,
         # combining a one-hot distribution (with the hot bit set to a) and the
         # feature string
         term_str = self.data.terms[term] if term != None else ''
         return np.hstack(( self.a * (self.data.terms == term_str), features))
+
+    def get_input_itemM(self, features, term = None):
+        # on the basis of a string of features and a term, returns one vector,
+        # combining a one-hot distribution (with the hot bit set to a) and the
+        # feature string
+        term_str = self.data.terms[self.lang][term] if term != None else ''
+        all_terms = A([i for sublist in list(self.data.terms.values()) for i in sublist])
+        return np.hstack(( self.a * (all_terms == term_str), features))
 
     def update_map(self, input_item, time):
         # updates the map with an input item
@@ -484,9 +648,30 @@ class som(classifier):
         self.current_quantization_error += P(S(P(self.map[bmu_ix]-input_item,
                                                  2)),0.5)
 
+    def update_mapM(self, input_item, time):
+        # updates the map with an input item
+        # sigma = self.sigma_0 * np.exp(-(time / self.lambda_sigma))
+        sigma = self.sigma_0
+        # BB 2906 sigma decreases as a function of the quantization error
+        # improvement
+        bmu_ix = self.get_bmu_ixM(input_item)
+        h = np.exp(-self.get_grid_distance(bmu_ix) / (2 * P(sigma, 2) ))
+        # the formulation with (2*sigma^2) a.o.t. sigma^2 comes from Kohonen
+        # (2001), p. 111
+        h = h[..., None] * np.ones((sum(self.data.nT.values()) + self.data.nF))
+        self.map = self.map + self.alpha * h * (-self.map + input_item)
+        self.current_quantization_error += P(S(P(self.map[bmu_ix]-input_item,
+                                                 2)),0.5)
+
     def get_bmu_ix(self, input_item, ignore_terms = False):
         # gets the map index of the best matching unit
         f = self.data.nT * ignore_terms
+        D = np.linalg.norm(self.map[:,:,f:] - input_item[f:],ord = 2,axis = 2)
+        return np.unravel_index(D.argmin(), self.map.shape[:2])
+
+    def get_bmu_ixM(self, input_item, ignore_terms = False):
+        # gets the map index of the best matching unit
+        f = sum(self.data.nT.values()) * ignore_terms
         D = np.linalg.norm(self.map[:,:,f:] - input_item[f:],ord = 2,axis = 2)
         return np.unravel_index(D.argmin(), self.map.shape[:2])
 
@@ -509,14 +694,52 @@ class som(classifier):
         if len(test_items.shape) == 1: test_items = A([test_items])
         bmu_ixx = []
         for test_item in test_items:
-            input_item = self.get_input_item(features = test_item, term = None)
+            input_item = self.get_input_itemM(features = test_item, term = None)
             bmu_ix = self.get_bmu_ix(input_item, True)
             bmu_ixx.append(bmu_ix)
-        term_distributions =A([self.map[i,j,:self.data.nT] for i,j in bmu_ixx])
+        term_distributions = A([self.map[i,j,:self.data.nT] for i,j in bmu_ixx])
         return normalize(term_distributions, norm = 'l1', axis = 1)
+
+    def predict_termsM(self, test_items):
+        # returns a I x T matrix of posterior probabilities over T per test
+        # item i in I from a matrix I x F for I test items each with F
+        # features.
+        #if len(test_items.shape) == 1: test_items = A([test_items])
+        # YM: this function receives a dictionary now.
+        term_distributions = dict()
+        bmu_ixx = dict()
+        for idx,test_item in test_items.items():
+            input_item = self.get_input_itemM(features = test_item, term = None)
+            bmu_ix = self.get_bmu_ixM(input_item, True)
+            bmu_ixx[idx] = bmu_ix
+        x = 0
+        for l in self.target_language:
+            term_distributions[l] = dict()
+            for idx, (i,j) in bmu_ixx.items():
+                term_distributions[l][idx] = A(self.map[i,j,x:x+self.data.nT[l]])
+                term_distributions[l][idx] = normalize(A([term_distributions[l][idx]]), norm = 'l1', axis = 1)
+            x += self.data.nT[l]
+        return term_distributions
 
     def get_dominant_term(self, i, j):
         return self.data.terms[np.argmax(self.map[i][j][:self.data.nT])]
+
+    def get_dominant_termM(self, i, j, l, start):
+        return self.data.terms[l][np.argmax(self.map[i][j][start:start+self.data.nT[l]])]
+
+    def get_term_mapM(self):
+        # returns a matrix the size of the SOM with the most likely term in
+        # every cell
+        result = list()
+        start = 0
+        for l in self.target_language:
+            result.append(A([A([('%s   ' % (self.get_dominant_termM(i,j, l, start)
+                                    if S(self.map[i,j,start:start+self.data.nT[l]]) > 0
+                                    else '[]'))[:3]
+                         for j in range(self.map.shape[1])])
+                        for i in range(self.map.shape[0])]))
+            start += self.data.nT[l]
+        return result
 
     def get_term_map(self):
         # returns a matrix the size of the SOM with the most likely term in 

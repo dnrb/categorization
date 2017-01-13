@@ -11,24 +11,34 @@ from subprocess import call
 ##
 # SHELL FOR EXPERIMENT
 ##
-def experiment(params, folder_name, pool_size = 3):
-    params['folder name'] =  folder_name
-    param_combos = [[sam, target, cd, size, a, alpha]
-                    for cd in ['dm_percconc']
-                    for target in ['112', '111']
-                    for sam in ['corpus','uniform']
-                    for size in [7,10,12]
-                    for a in [0.1,0.3,0.5]
-                    for alpha in [0.1,0.3,0.5]]
+def experiment(params, folder_name, pool_size = 1):
+    params['folder name'] = folder_name
+    # YM: changed TARGET class, added onset and share
+    param_combos = [[sam, target, cd, size, a, alpha, onset, share]
+                    for cd in ['dm_concprop','dm_perc']
+                    for target in [['113', '111']]
+                    #for sam in ['corpus','uniform']
+                    for sam in ['corpus']
+                    #for size in [7,10,12]
+                    for size in [5,7]
+                    #for a in [0.1,0.3,0.5]
+                    for a in [0.1]
+                    #for alpha in [0.1,0.3,0.5]
+                    for alpha in [0.1, 0.02]
+                    for onset in [[0, 1], [0, 0], [0, 0.25], [0, 0.5]]
+                    #for onset in [[0, 1], [1, 0]]
+                    for share in [[0.5, 0.5]]
+                    #for share in [[0.75, 0.25], [0.5, 0.5]]
+                    ]
     print('n parameter combos: %d' % len(param_combos))
-    features = ['input sampling responses', 'target language', 
-                'conceptual data', 'som size', 'som a', 'som alpha']
-    shorthands = ['sam', 'language', 'cd', 'size', 'a', 'alpha']
+    features = ['input sampling responses', 'target language', 'conceptual data', 'som size',
+                'som a', 'som alpha', 'moment of onset', 'language share']
+    shorthands = ['sam', 'target', 'cd', 'size', 'a', 'alpha', 'onset', 'share']
     #
     arguments = [(param_combo,params,features,shorthands,ix)
                  for ix,param_combo in enumerate(param_combos)]
-    pool = multiprocessing.Pool(processes = pool_size)
-    As = pool.map(train_and_test_and_discriminate, arguments)
+    for a in arguments:
+        train_and_test_and_discriminate(a)
     return
 
 ###
@@ -42,7 +52,8 @@ def train_and_test_and_discriminate(arguments):
                                          zip(shorthands,param_combo)])
     for pv, fe in zip(param_combo, features): params[fe] = pv
     d = data(params)
-    d.read_discrimination_data(params)
+    # #YM: not needed for this experiment
+    # d.read_discrimination_data(params)
     d.dirname = '%s/%s' % (params['folder name'], params['subfolder name'])
     print(os.path.isdir(d.dirname))
     if os.path.isdir(d.dirname): 
@@ -55,10 +66,11 @@ def train_and_test_and_discriminate(arguments):
     for simulation in range(params['n simulations']):
         print(simulation)
         c = som(d, params, simulation)
-        c.train(dump = dump, test = True)
+        c.trainM(dump = dump, test = True)
         # trains the model incrementally, testing it on all items regularly
-        c.discriminate() 
+        # c.discriminate()
         # replicates the color discrimination experiments of Winawer et al.
+        # YM: not applicable
 
 ###
 # MAIN
